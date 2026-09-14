@@ -465,7 +465,7 @@ function saveApiKey() {
 function startGoogleAuth() {
   const params = new URLSearchParams({
     client_id:     GOOGLE_CLIENT_ID,
-    redirect_uri:  window.location.origin,
+    redirect_uri:  'https://jaybarry28-eng.github.io/memorial-slideshow-planner',
     response_type: 'token',
     scope:         GOOGLE_SCOPES,
     prompt:        'select_account',
