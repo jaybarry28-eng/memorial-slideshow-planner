@@ -223,10 +223,8 @@ section{margin-bottom:40px}
       <div class="fg" style="margin-bottom:0">
         <label class="flbl">Google account</label>
         <p style="font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:14px;">Sign in so the finished slideshow can be created directly in your Google Drive. You'll get a shareable link and can download it as PowerPoint (.pptx) in one click.</p>
-        <button class="google-btn" id="googleBtn" onclick="startGoogleAuth()">
-          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
-          Sign in with Google
-        </button>
+        <div id="googleBtnContainer"></div>
+        <div id="googleConnected" style="display:none" class="status-ok">Google account connected</div>
         <div id="googleStatus"></div>
       </div>
     </div>
@@ -460,32 +458,42 @@ function saveApiKey() {
 }
 
 // ─────────────────────────────────────────────
-// GOOGLE OAUTH
+// GOOGLE OAUTH — using Google Identity Services
 // ─────────────────────────────────────────────
-function startGoogleAuth() {
-  const params = new URLSearchParams({
-    client_id:     GOOGLE_CLIENT_ID,
-    redirect_uri:  'https://jaybarry28-eng.github.io/memorial-slideshow-planner',
-    response_type: 'token',
-    scope:         GOOGLE_SCOPES,
-    prompt:        'select_account',
+function initGoogleAuth() {
+  if (!window.google) { setTimeout(initGoogleAuth, 200); return; }
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope:     GOOGLE_SCOPES,
+    callback:  (response) => {
+      if (response.error) {
+        toast('Google sign-in failed', response.error, 5000);
+        return;
+      }
+      state.googleToken = response.access_token;
+      document.getElementById('googleBtnContainer').style.display = 'none';
+      document.getElementById('googleConnected').style.display = 'flex';
+      toast('Google connected ✓', 'Your Drive is ready');
+    },
   });
-  window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  // Render button
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: () => {},
+  });
+  // Store client for button click
+  window._gClient = client;
+  // Create styled button
+  const container = document.getElementById('googleBtnContainer');
+  const btn = document.createElement('button');
+  btn.className = 'google-btn';
+  btn.innerHTML = \`<svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.175 0 7.55 0 9s.348 2.825.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg> Sign in with Google\`;
+  btn.onclick = () => window._gClient.requestAccessToken({ prompt: 'select_account' });
+  container.appendChild(btn);
 }
 
 function checkGoogleCallback() {
-  const hash = window.location.hash;
-  if (!hash) return;
-  const params = new URLSearchParams(hash.replace('#',''));
-  const token  = params.get('access_token');
-  if (!token) return;
-  state.googleToken = token;
-  window.history.replaceState(null, '', window.location.pathname);
-  const el = document.getElementById('googleStatus');
-  el.className = 'status-ok'; el.textContent = 'Connected to Google';
-  document.getElementById('googleBtn').textContent = '✓ Google connected';
-  document.getElementById('googleBtn').disabled = true;
-  toast('Google connected ✓', 'Your Drive is ready');
+  // Not needed with GIS — handled by callback above
 }
 
 // ─────────────────────────────────────────────
@@ -1086,7 +1094,8 @@ function toast(t, b, dur = 3500) {
 // ─────────────────────────────────────────────
 // INIT
 // ─────────────────────────────────────────────
-checkGoogleCallback();
+initGoogleAuth();
 </script>
+<script src="https://accounts.google.com/gsi/client" async></script>
 </body>
 </html>
